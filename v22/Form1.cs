@@ -19,7 +19,9 @@ namespace v22
         {
             InitializeComponent();
             fdf();
-            vakidateuser(string Login, string Password);
+            string Password = textBox2.Text;
+            string Login = textBox1.Text;
+            vakidateuser(Login,Password);
         }
         private void fdf()
         {
@@ -195,3 +197,4 @@ namespace v22
         }
     }
 }
+
