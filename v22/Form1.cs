@@ -19,6 +19,7 @@ namespace v22
         {
             InitializeComponent();
             fdf();
+            vakidateuser(string Login, string Password);
         }
         private void fdf()
         {
@@ -184,6 +185,7 @@ namespace v22
 
                 }
             return false;
+
         }
         private void button3_Click(object sender, EventArgs e)
         {
