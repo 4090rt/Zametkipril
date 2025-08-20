@@ -13,7 +13,7 @@ using System.Security.Cryptography;
 using System.IO;
 namespace v22
 {
-    public partial class Form1: Form
+    public partial class Form1 : Form
     {
         public Form1()
         {
@@ -23,11 +23,9 @@ namespace v22
         private void fdf()
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
-            MessageBox.Show(dbPath);
         }
         private string hashpqpass(string Password)
         {
-            Password = textBox2.Text;
             try
             {
                 if (!string.IsNullOrEmpty(Password))
@@ -49,63 +47,57 @@ namespace v22
             catch (Exception ex)
             {
                 MessageBox.Show("Ошибка" + ex.Message);
-                return null;
+                throw;
             }
         }
-
-        private string hashemail(string Email)
-        {
-            Email = textBox3.Text;
-            try
-            {
-                if (!string.IsNullOrEmpty(Email))
-                {
-                    using (SHA256 sha256 = SHA256.Create())
-                    {
-                        byte[] bytess = sha256.ComputeHash(Encoding.UTF8.GetBytes(Email));
-                        StringBuilder stringbulder = new StringBuilder();
-                        for (int i = 0; i < bytess.Length; i++)
-                        {
-                            stringbulder.Append(bytess[i].ToString("x2"));
-                        }
-                        return stringbulder.ToString();
-                    }
-                }
-                throw new Exception("Ошибка");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка" + ex.Message);
-                return null;
-            }
-        }
-        private void button1_Click(object sender, EventArgs e)
+        //private string hashemail(string Email)
+        //{
+        //    try
+        //    {
+        //        if (!string.IsNullOrEmpty(Email))
+        //        {
+        //            using (SHA256 sha256 = SHA256.Create())
+        //            {
+        //                byte[] bytess = sha256.ComputeHash(Encoding.UTF8.GetBytes(Email));
+        //                StringBuilder stringbulder = new StringBuilder();
+        //                for (int i = 0; i < bytess.Length; i++)
+        //                {
+        //                    stringbulder.Append(bytess[i].ToString("x2"));
+        //                }
+        //                return stringbulder.ToString();
+        //            }
+        //        }
+        //        throw new Exception("Ошибка");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show("Ошибка" + ex.Message);
+        //        throw;
+        //    }
+        //}
+        private void dobavitnewuser()
         {
             try
             {
                 if (File.Exists("UserBase.db"))
                 {
-                    string Email = textBox3.Text;
                     string Password = textBox2.Text;
-                    string hashemaill = hashemail(Email);
                     string hashpassword = hashpqpass(Password);
                     string Login = textBox1.Text;
                     string City = textBox4.Text;
-                    if (!string.IsNullOrEmpty(Login) && !string.IsNullOrEmpty(hashpassword) && !string.IsNullOrEmpty(hashemaill) && string.IsNullOrEmpty(City))
+                    if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(City))
                     {
                         MessageBox.Show("Заполните все поля!");
+                        return;
                     }
                     string vars = "Data Source=UserBase.db";
-
-
                     using (var das = new SQLiteConnection(vars))
                     {
                         das.Open();
                         var cmd2 = new SQLiteCommand(
-                            "INSERT INTO [Users] (Name,Password,Email,City) VALUES (@L,@P,@E,@C)", das);
+                            "INSERT INTO [Users] (Login,Password,City) VALUES (@L,@P,@C)", das);
                         cmd2.Parameters.AddWithValue("@L", textBox1.Text);
                         cmd2.Parameters.AddWithValue("@P", hashpassword);
-                        cmd2.Parameters.AddWithValue("@E", hashemaill);
                         cmd2.Parameters.AddWithValue("@C", textBox4.Text);
                         cmd2.ExecuteNonQuery();
                         MessageBox.Show("Данные сохранены!");
@@ -117,11 +109,87 @@ namespace v22
                     MessageBox.Show("БД не найдена");
                 }
             }
-            catch(Exception ex) 
+            catch (Exception ex)
             {
-                MessageBox.Show("Ошибка сохранения" + ex.Message);
+                MessageBox.Show("Ошибка добавления" + ex.Message);
             }
         }
 
+        private void button1_Click(object sender, EventArgs e)
+        {
+            string dbPath = System.IO.Path.GetFullPath("UserBase.db");
+              try
+              {
+                  using (var das = new SQLiteConnection($"Data Source={dbPath}"))
+                  {
+                        das.Open();
+                        var createTableCommand = new SQLiteCommand(
+                           @"CREATE TABLE IF NOT EXISTS [Users] (
+                                [ID] INTEGER PRIMARY KEY AUTOINCREMENT,
+                                [Login] TEXT NOT NULL,
+                                [Password] TEXT NOT NULL,
+                                [City] TEXT NOT NULL
+                            )", das);
+                        createTableCommand.ExecuteNonQuery();
+                  }
+                  dobavitnewuser();
+              }
+              catch (Exception ex)
+              {
+              MessageBox.Show("Ошибка" + ex.Message);
+              }
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            zametkacreate zametkacreate = new zametkacreate();
+            zametkacreate.Show();
+            this.Hide();
+        }
+        private bool vakidateuser(string Login, string Password) 
+        {
+            if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(Password))
+            {
+                MessageBox.Show("Введите Логин и пароль ");
+                return false;
+            }
+            string dbPath = System.IO.Path.GetFullPath("UserBase.db");
+            if (!File.Exists(dbPath))
+            {
+                MessageBox.Show("БД не найдена");
+                return false;
+            }
+            string hashpass = hashpqpass(Password);
+            using (var das = new SQLiteConnection($"Data Source={dbPath}"))
+            {
+                das.Open();
+                try
+                {
+                    using (var gg = new SQLiteCommand(@"SELECT Password FROM Users WHERE Login = @L LIMIT 1", das))
+                    {
+                        gg.Parameters.AddWithValue("@L", Login);
+                        var value = gg.ExecuteScalar();
+                        if (value == null || value == DBNull.Value)
+                        {
+                            return false;
+                        }
+                        string pasd = Convert.ToString(value);
+                        return string.Equals(pasd, hashpass, StringComparison.Ordinal);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Ошибка" + ex.Message);
+
+                }
+
+                }
+            return false;
+        }
+        private void button3_Click(object sender, EventArgs e)
+        {
+            settings set = new settings();
+            set.Show();
+            this.Hide();
+        }
     }
 }
