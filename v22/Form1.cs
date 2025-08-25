@@ -11,6 +11,7 @@ using System.Data.SQLite;
 using Org.BouncyCastle.Tls;
 using System.Security.Cryptography;
 using System.IO;
+using System.Text.RegularExpressions;
 namespace v22
 {
     public partial class Form1 : Form
@@ -21,12 +22,13 @@ namespace v22
             fdf();
             string Password = textBox2.Text;
             string Login = textBox1.Text;
-            vakidateuser(Login,Password);
         }
+        // Путь к бд
         private void fdf()
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
         }
+        // Хэширование пароля
         private string hashpqpass(string Password)
         {
             try
@@ -53,31 +55,7 @@ namespace v22
                 throw;
             }
         }
-        //private string hashemail(string Email)
-        //{
-        //    try
-        //    {
-        //        if (!string.IsNullOrEmpty(Email))
-        //        {
-        //            using (SHA256 sha256 = SHA256.Create())
-        //            {
-        //                byte[] bytess = sha256.ComputeHash(Encoding.UTF8.GetBytes(Email));
-        //                StringBuilder stringbulder = new StringBuilder();
-        //                for (int i = 0; i < bytess.Length; i++)
-        //                {
-        //                    stringbulder.Append(bytess[i].ToString("x2"));
-        //                }
-        //                return stringbulder.ToString();
-        //            }
-        //        }
-        //        throw new Exception("Ошибка");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageBox.Show("Ошибка" + ex.Message);
-        //        throw;
-        //    }
-        //}
+        // добавление данных юзера в бд
         private void dobavitnewuser()
         {
             try
@@ -91,6 +69,17 @@ namespace v22
                     if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(City))
                     {
                         MessageBox.Show("Заполните все поля!");
+                        return;
+                    }
+                    if (Password.Length < 8)
+                    {
+                        MessageBox.Show("Пароль не может быть меньше 8 символов!");
+                        return;
+                    }
+                    bool reg = Regex.IsMatch(Password, @"[!@#$%^&*()_+=\[{\]};:<>|./?,-]");
+                    if (reg == false) 
+                    {
+                        MessageBox.Show("Пароль Должен содержать специальные символы! (!@#$%^&*()_+=\\[{\\]};:<>|./?,-)");
                         return;
                     }
                     string vars = "Data Source=UserBase.db";
@@ -117,7 +106,7 @@ namespace v22
                 MessageBox.Show("Ошибка добавления" + ex.Message);
             }
         }
-
+        // при нажатии на кнопку создается новое бд для хранения данных
         private void button1_Click(object sender, EventArgs e)
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
@@ -142,12 +131,14 @@ namespace v22
               MessageBox.Show("Ошибка" + ex.Message);
               }
         }
+        // переход на форму добавления заметки
         private void button2_Click(object sender, EventArgs e)
         {
             zametkacreate zametkacreate = new zametkacreate();
             zametkacreate.Show();
             this.Hide();
         }
+        // Метод валидации пользователя
         private bool vakidateuser(string Login, string Password) 
         {
             if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(Password))
@@ -184,17 +175,44 @@ namespace v22
                     MessageBox.Show("Ошибка" + ex.Message);
 
                 }
-
-                }
+            }
             return false;
-
         }
+        // переход на форму настроек
         private void button3_Click(object sender, EventArgs e)
         {
-            settings set = new settings();
+            string Login = textBox1.Text;
+            string Password = textBox2.Text;
+            settings set = new settings(Login,Password);
             set.Show();
             this.Hide();
+
+        }
+        // переход на форму настроек после валидации с доп проверками и обработчиками ошибок
+        private void button4_Click(object sender, EventArgs e)
+        {
+            string Login = textBox1.Text;
+            string Password = textBox2.Text;
+            string City = textBox4.Text;
+            vakidateuser(Login,Password);
+            try
+            {
+                if (vakidateuser(Login, Password) == true)
+                {
+                    settings setting = new settings(Login,Password);
+                    setting.Show();
+                    this.Hide();
+                }
+                else 
+                {
+                    MessageBox.Show("Ошибка ввода логина или пароля");
+                    return;              
+                }
+            }
+            catch (Exception ex) 
+            {
+                    MessageBox.Show("Не удалось войти", "Ошибка!" + MessageBoxIcon.Error + ex.Message);
+            }
         }
     }
 }
-
