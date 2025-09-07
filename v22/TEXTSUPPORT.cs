@@ -27,8 +27,7 @@ namespace v22
             InitializeComponent();
             _Login = Login;
             _Email = Email;
-            // Инициализация apiKey - вам нужно будет установить правильное значение
-            apiKey = "your-api-key-here"; // Замените на ваш реальный API ключ
+            apiKey = "your-api-key-here"; 
         }
 
         public async Task<string> AskAiAsync(string userQuestion, string apiKey)
@@ -196,3 +195,4 @@ namespace v22
         }
     }
 }
+
