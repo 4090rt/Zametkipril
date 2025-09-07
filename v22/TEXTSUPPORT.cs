@@ -67,11 +67,37 @@ namespace v22
                     var json = JsonSerializer.Serialize(payload);
                     using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
                     {
+                        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                        content.Headers.Add("Content Language", "en-US");
                         using (var rep = await client.PostAsync("", content))
                         {
+                            client.DefaultRequestHeaders.Accept.Clear();
+                            var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
+                            var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
+                            client.DefaultRequestHeaders.Accept.Add(acceptJson);
+                            client.DefaultRequestHeaders.Accept.Add(acceptHtml);
+                            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                            client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
+                            client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
+                            foreach (var header in rep.Headers)
+                            {
+                                MessageBox.Show($"Заголовок: {header.Key} = {string.Join(", ", header.Value)}");
+                            }
+                            if (rep.Headers.TryGetValues("Server", out var serverValues))
+                            {
+                                MessageBox.Show($"Сервер: {string.Join(", ", serverValues)}");
+                            }
+                            if (rep.Headers.TryGetValues("Server", out var datevalues))
+                            {
+                                MessageBox.Show($"Date: {string.Join(", ", datevalues)}");
+                            }
                             try
                             {
                                 rep.EnsureSuccessStatusCode();
+                                MessageBox.Show($"Content type: {rep.Content.Headers.ContentType}");
+                                MessageBox.Show($"Lenght: {rep.Content.Headers.ContentLength}");
+                                MessageBox.Show($"Content Location: {rep.Content.Headers.ContentLocation}");
+                                MessageBox.Show($"Content type: {rep.Content.Headers.ContentEncoding}");
                                 var result = await rep.Content.ReadAsStringAsync();
                                 using (var doc = JsonDocument.Parse(result))
                                 {
