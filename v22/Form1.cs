@@ -17,16 +17,24 @@ namespace v22
     public partial class Form1 : Form
     {
         private readonly string _Login;
+        private string _placeholderLogin = "Логин";
+        private string _placeholderPassword = "Пароль";
+        private string _placeholderCity = "Город";
+        private string _placeholderEmail = "Email";
         public Form1()
         {
             InitializeComponent();
             fdf();
+            ApplyDarkTheme();
+            EnhanceInputs();
         }
 
         public Form1(string Login)
         {
             InitializeComponent();
             fdf();
+            ApplyDarkTheme();
+            EnhanceInputs();
             _Login = Login;
             string Password = textBox2.Text;
             string Loginn = textBox1.Text;
@@ -406,6 +414,117 @@ namespace v22
         // переход на форму c API
         private void button5_Click(object sender, EventArgs e)
         {
+        }
+
+        private void ApplyDarkTheme()
+        {
+            this.BackColor = Color.FromArgb(24, 26, 32);
+            this.ForeColor = Color.Gainsboro;
+            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+
+            foreach (Control control in this.Controls)
+            {
+                StyleControl(control);
+            }
+        }
+
+        private void StyleControl(Control control)
+        {
+            if (control is Button btn)
+            {
+                btn.FlatStyle = FlatStyle.Flat;
+                btn.FlatAppearance.BorderSize = 0;
+                btn.BackColor = Color.FromArgb(55, 60, 75);
+                btn.ForeColor = Color.Gainsboro;
+                btn.Height = 28;
+            }
+            else if (control is Panel pnl)
+            {
+                pnl.BackColor = pnl.Dock == DockStyle.Top
+                    ? Color.FromArgb(30, 34, 45)
+                    : Color.FromArgb(28, 31, 40);
+            }
+            else if (control is Label lbl)
+            {
+                lbl.ForeColor = Color.Gainsboro;
+            }
+            else if (control is TextBox tb)
+            {
+                tb.BorderStyle = BorderStyle.FixedSingle;
+                tb.BackColor = Color.FromArgb(36, 39, 50);
+                tb.ForeColor = Color.Gainsboro;
+                tb.Margin = new Padding(0, 2, 0, 2);
+            }
+
+            foreach (Control child in control.Controls)
+            {
+                StyleControl(child);
+            }
+        }
+
+        private void EnhanceInputs()
+        {
+            // Скрывать пароль
+            textBox2.UseSystemPasswordChar = true;
+
+            // Плейсхолдеры
+            SetPlaceholder(textBox1, _placeholderLogin);
+            SetPlaceholder(textBox2, _placeholderPassword);
+            SetPlaceholder(textBox4, _placeholderCity);
+            SetPlaceholder(textBox3, _placeholderEmail);
+
+            textBox1.GotFocus += (s, e) => RemovePlaceholder(textBox1, _placeholderLogin);
+            textBox1.LostFocus += (s, e) => SetPlaceholder(textBox1, _placeholderLogin);
+
+            textBox2.GotFocus += (s, e) => RemovePlaceholder(textBox2, _placeholderPassword, isPassword: true);
+            textBox2.LostFocus += (s, e) => SetPlaceholder(textBox2, _placeholderPassword, isPassword: true);
+
+            textBox4.GotFocus += (s, e) => RemovePlaceholder(textBox4, _placeholderCity);
+            textBox4.LostFocus += (s, e) => SetPlaceholder(textBox4, _placeholderCity);
+
+            textBox3.GotFocus += (s, e) => RemovePlaceholder(textBox3, _placeholderEmail);
+            textBox3.LostFocus += (s, e) => SetPlaceholder(textBox3, _placeholderEmail);
+        }
+
+        private void SetPlaceholder(TextBox tb, string text, bool isPassword = false)
+        {
+            if (string.IsNullOrEmpty(tb.Text))
+            {
+                tb.ForeColor = Color.Silver;
+                tb.Text = text;
+                if (isPassword)
+                {
+                    tb.UseSystemPasswordChar = false;
+                }
+            }
+        }
+
+        private void RemovePlaceholder(TextBox tb, string text, bool isPassword = false)
+        {
+            if (tb.Text == text)
+            {
+                tb.Text = string.Empty;
+                tb.ForeColor = Color.Gainsboro;
+                if (isPassword)
+                {
+                    tb.UseSystemPasswordChar = true;
+                }
+            }
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void btnMinimize_Click(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+        }
+
+        private void gbRegister_Enter(object sender, EventArgs e)
+        {
+
         }
     }
 }

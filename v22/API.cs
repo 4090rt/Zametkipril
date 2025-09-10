@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Google.Protobuf;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -6,11 +7,11 @@ using System.Data.SQLite;
 using System.Drawing;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Google.Protobuf;
 
 namespace v22
 {
@@ -79,30 +80,63 @@ namespace v22
             string URL = $"https://api.ipgeolocation.io/timezone?apiKey={APIKEY}&location={Uri.EscapeDataString(City)},%20{Uri.EscapeDataString(Country)}";
             try
             {
+
                 using (HttpClient client = new HttpClient())
                 {
                     HttpResponseMessage recpon = await client.GetAsync(URL);
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
+                    var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
+                    client.DefaultRequestHeaders.Accept.Add(acceptJson);
+                    client.DefaultRequestHeaders.Accept.Add(acceptHtml);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                    client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
+                    client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                     recpon.EnsureSuccessStatusCode();
                     string result = await recpon.Content.ReadAsStringAsync();
-
-                    using (JsonDocument json = JsonDocument.Parse(result))
+                    
+                    if (recpon.IsSuccessStatusCode)
                     {
-                        JsonElement root = json.RootElement;
-                        string timeinfo = null;
-                        if (root.TryGetProperty("date_time_txt", out var dateTimeTxt) && dateTimeTxt.ValueKind == JsonValueKind.String)
+                        MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
+                        MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
+                        MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
+                        MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
+                        MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
+                        foreach (var heah in recpon.Headers)
                         {
-                            timeinfo = dateTimeTxt.GetString();
+                            MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
                         }
-                        else if (root.TryGetProperty("date", out var dateEl) && root.TryGetProperty("time", out var timeEl))
+                        if (recpon.Headers.TryGetValues("Server", out var servervalues))
                         {
-                            timeinfo = $"{dateEl.GetString()} {timeEl.GetString()}";
+                            MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
                         }
-                        else if (root.TryGetProperty("time_24", out var time24) && time24.ValueKind == JsonValueKind.String)
+                        if (recpon.Headers.TryGetValues("Date", out var datevalues))
                         {
-                            timeinfo = time24.GetString();
+                            MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
                         }
+                        using (JsonDocument json = JsonDocument.Parse(result))
+                        {
+                            JsonElement root = json.RootElement;
+                            string timeinfo = null;
+                            if (root.TryGetProperty("date_time_txt", out var dateTimeTxt) && dateTimeTxt.ValueKind == JsonValueKind.String)
+                            {
+                                timeinfo = dateTimeTxt.GetString();
+                            }
+                            else if (root.TryGetProperty("date", out var dateEl) && root.TryGetProperty("time", out var timeEl))
+                            {
+                                timeinfo = $"{dateEl.GetString()} {timeEl.GetString()}";
+                            }
+                            else if (root.TryGetProperty("time_24", out var time24) && time24.ValueKind == JsonValueKind.String)
+                            {
+                                timeinfo = time24.GetString();
+                            }
 
-                        label2.Text = string.IsNullOrWhiteSpace(timeinfo) ? "Время недоступно" : timeinfo;
+                            label2.Text = string.IsNullOrWhiteSpace(timeinfo) ? "Время недоступно" : timeinfo;
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show($"EROR {(int)recpon.StatusCode} {recpon.ReasonPhrase}");
                     }
                 }
             }
@@ -123,169 +157,200 @@ namespace v22
                 using (HttpClient client = new HttpClient())
                 {
                     HttpResponseMessage recpon = await client.GetAsync(URL);
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
+                    var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
+                    client.DefaultRequestHeaders.Accept.Add(acceptJson);
+                    client.DefaultRequestHeaders.Accept.Add(acceptHtml);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                    client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
+                    client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                     recpon.EnsureSuccessStatusCode();
                     string res = await recpon.Content.ReadAsStringAsync();
-
-                    using (JsonDocument json = JsonDocument.Parse(res))
+                    if (recpon.IsSuccessStatusCode)
                     {
-                        JsonElement root = json.RootElement;
-                        JsonElement weather = root.GetProperty("weather")[0];
-                        JsonElement main = root.GetProperty("main");
-                        string description = weather.GetProperty("description").GetString();
-
-                        if (description == "пасмурно")
+                        MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
+                        MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
+                        MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
+                        MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
+                        MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
+                        foreach (var heah in recpon.Headers)
                         {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.pasmurno1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(15, 10);
-                                label1.Location = new Point(45, 15);
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
+                            MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
                         }
-
-                        if (description == "ясно")
+                        if (recpon.Headers.TryGetValues("Server", out var servervalues))
                         {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.iacno1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
-
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
+                            MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
                         }
-                        if (description == "облачно с прояснениями")
+                        if (recpon.Headers.TryGetValues("Date", out var datevalues))
                         {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.oblacno1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
+                            MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
                         }
-
-                        if (description == "переменная облачность")
+                        using (JsonDocument json = JsonDocument.Parse(res))
                         {
-                            try
+                            JsonElement root = json.RootElement;
+                            JsonElement weather = root.GetProperty("weather")[0];
+                            JsonElement main = root.GetProperty("main");
+                            string description = weather.GetProperty("description").GetString();
+
+                            if (description == "пасмурно")
                             {
-                                pictureBox1.Image = Properties.Resources.peremennaiaoblach1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.pasmurno1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(15, 10);
+                                    label1.Location = new Point(45, 15);
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
                             }
-                            catch (Exception ex)
+
+                            if (description == "ясно")
                             {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.iacno1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
                             }
+                            if (description == "облачно с прояснениями")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.oblacno1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+
+                            if (description == "переменная облачность")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.peremennaiaoblach1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+
+
+                            if (description == "дождь")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.osadki1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+
+                            if (description == "гроза")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.Groza1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+
+                            if (description == "снег")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.sneg1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 10);
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+
+                            if (description == "небольшой проливной дождь")
+                            {
+                                try
+                                {
+                                    pictureBox1.Image = Properties.Resources.osadki1;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                                    pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+                                    pictureBox1.Width = 30;
+                                    pictureBox1.Height = 30;
+                                    pictureBox1.Location = new Point(8, 10);
+                                    label1.Location = new Point(45, 15);
+
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
+                                }
+                            }
+                            string weatherInfo =
+                                $"{City} + {main.GetProperty("temp").GetDouble()}°C\n"
+                             //$"- Влажность: {main.GetProperty("humidity").GetInt32()}%\n" +
+                             //$"- Скорость ветра: {wind.GetProperty("speed").GetDouble()} м/с\n" +
+                             + $"- {weather.GetProperty("description").GetString()}";
+                            label1.Text = weatherInfo;
+                            try { label1.ForeColor = Color.Gainsboro; } catch { }
                         }
-
-
-                        if (description == "дождь")
-                        {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.osadki1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
-                        }
-
-                        if (description == "гроза")
-                        {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.Groza1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
-
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
-                        }
-
-                        if (description == "снег")
-                        {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.sneg1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 10);
-
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
-                        }
-
-                        if (description == "небольшой проливной дождь")
-                        {
-                            try
-                            {
-                                pictureBox1.Image = Properties.Resources.osadki1;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
-                                pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                pictureBox1.Width = 30;
-                                pictureBox1.Height = 30;
-                                pictureBox1.Location = new Point(8, 10);
-                                label1.Location = new Point(45, 15);
-
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Не удалось загрузить изображение" + ex.Message);
-                            }
-                        }
-                        string weatherInfo =
-                            $"{City} + {main.GetProperty("temp").GetDouble()}°C\n"
-                        //$"- Влажность: {main.GetProperty("humidity").GetInt32()}%\n" +
-                        //$"- Скорость ветра: {wind.GetProperty("speed").GetDouble()} м/с\n" +
-                         + $"- {weather.GetProperty("description").GetString()}";
-                        label1.Text = weatherInfo;
-                        try { label1.ForeColor = Color.Gainsboro; } catch {}
+                    }
+                    else
+                    {
+                        MessageBox.Show($"EROR {(int)recpon.StatusCode} {recpon.ReasonPhrase}");
                     }
                 }
             }

@@ -25,6 +25,7 @@ namespace v22
         public settings(string Login,string Password, string email)
         {
             InitializeComponent();
+            ApplyDarkTheme();
             //// Создаём панель-хост для встраивания формы API, если она ещё не создана
             //if (panelApiHost == null)
             //{
@@ -53,6 +54,51 @@ namespace v22
             //}
             //apiForm.Show();                               // НЕ ShowDialog
             //apiForm.BringToFront();
+        }
+        private void ApplyDarkTheme()
+        {
+            this.BackColor = Color.FromArgb(24, 26, 32);
+            this.ForeColor = Color.Gainsboro;
+            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+
+            foreach (Control control in this.Controls)
+            {
+                StyleControl(control);
+            }
+        }
+
+        private void StyleControl(Control control)
+        {
+            if (control is Button btn)
+            {
+                btn.FlatStyle = FlatStyle.Flat;
+                btn.FlatAppearance.BorderSize = 0;
+                btn.BackColor = Color.FromArgb(55, 60, 75);
+                btn.ForeColor = Color.Gainsboro;
+                btn.Height = 28;
+            }
+            else if (control is Panel pnl)
+            {
+                pnl.BackColor = pnl.Dock == DockStyle.Top
+                    ? Color.FromArgb(30, 34, 45)
+                    : Color.FromArgb(28, 31, 40);
+            }
+            else if (control is Label lbl)
+            {
+                lbl.ForeColor = Color.Gainsboro;
+            }
+            else if (control is TextBox tb)
+            {
+                tb.BorderStyle = BorderStyle.FixedSingle;
+                tb.BackColor = Color.FromArgb(36, 39, 50);
+                tb.ForeColor = Color.Gainsboro;
+                tb.Margin = new Padding(0, 2, 0, 2);
+            }
+
+            foreach (Control child in control.Controls)
+            {
+                StyleControl(child);
+            }
         }
         //Метод Для отображения сток аватарки пользователя
         private void stokavatar() 
@@ -351,7 +397,7 @@ namespace v22
         private bool smenascity() 
         {
             label1.Text = _Login;
-            string NEWCity = textBox3.Text;
+            string NEWCity = textBoxCity.Text;
             if (!System.IO.File.Exists("UserBase.db"))
             {
                 MessageBox.Show("Бд не найден!6");
@@ -380,22 +426,6 @@ namespace v22
                 }
             }
         }
-        // Метод Для выбора пользователем аватарки по нажатию 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
-                {
-                    Image newavatar = Image.FromFile(openFileDialog.FileName);
-                    pictureBox1.Image = newavatar;
-                }
-            }
-
-            catch (Exception ex) {
-                MessageBox.Show("Ошибка" + ex.Message);
-            }
-        }
         // Рестарт форм, выход из профиля
         private void button2_Click(object sender, EventArgs e)
         {
@@ -411,10 +441,6 @@ namespace v22
         {
             smenascity();
         }
-        // переход на форму c API
-        private void button5_Click(object sender, EventArgs e)
-        {
-        }
         // отобржаение результатов из API 
         private void pokazapi()
         {
@@ -422,10 +448,34 @@ namespace v22
             api.Show(this);
             
         }
-
         private void button6_Click(object sender, EventArgs e)
         {
             smenapochta();
+        }
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+        private void btnMinimize_Click(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+        }
+        // Метод Для выбора пользователем аватарки по нажатию 
+        private void button5_Click_1(object sender, EventArgs e)
+        {
+            try
+            {
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    Image newavatar = Image.FromFile(openFileDialog.FileName);
+                    pictureBox1.Image = newavatar;
+                }
+            }
+
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка" + ex.Message);
+            }
         }
     }
 }
