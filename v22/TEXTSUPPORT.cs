@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -12,6 +13,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace v22
 {
@@ -20,6 +22,8 @@ namespace v22
     {
         private string userQuestion; 
         private string apiKey;
+        private const string OllamaModel = "qwen2.5:0.5b-instruct-q4_K_M"; // модель по умолчанию
+        private string _ollamaExeCached;
         private readonly string _Login;
         private readonly string _Email;
         public TEXTSUPPORT(string Login, string Email)
@@ -29,11 +33,121 @@ namespace v22
             _Email = Email;
             // Инициализация apiKey - вам нужно будет установить правильное значение
             apiKey = "your-api-key-here"; // Замените на ваш реальный API ключ
+            
         }
+
+        private async Task<bool> EnsureOllamaAsync()
+        {
+            // 1) Проверяем доступность локального API
+            try
+            {
+                using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) }) //Создаём HttpClient с коротким таймаутом, чтобы быстро понять, жив ли API.
+                {
+                    var res = await http.GetAsync("http://localhost:11434/api/tags");//Пингуем локальный API Ollama.
+                    if (res.IsSuccessStatusCode)
+                    {
+                        // 2) Подтягиваем (или быстро проверяем наличие) модели
+                        var ollamaExe = ResolveOllamaPath();
+                        if (!string.IsNullOrWhiteSpace(ollamaExe))
+                        {
+                            await RunProcessAsync(ollamaExe, $"pull {OllamaModel}", 120000);//Если сервер уже работает, сразу подтягиваем модель (если нет — скачает; если есть — мгновенно проверит) и выходим.
+                        }
+                        return true;
+                    }
+                }
+            }
+            catch { }
+
+            // 3) Пытаемся запустить сервер Ollama в пользовательском режиме
+            try
+            {
+                var ollamaExe = ResolveOllamaPath();
+                if (!string.IsNullOrWhiteSpace(ollamaExe))
+                {
+                    await RunProcessAsync(ollamaExe, "serve", 2000);
+                }
+            }
+            catch { }
+
+            // 4) Повторная проверка доступности (несколько попыток)
+            try
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) })
+                    {
+                        var res = await http.GetAsync("http://localhost:11434/api/tags");
+                        if (res.IsSuccessStatusCode) break;
+                    }
+                    await Task.Delay(800);
+                }
+            }
+            catch { return false; }
+
+            // 5) Подтягиваем модель (если уже есть — быстро вернётся)
+            try
+            {
+                var ollamaExe = ResolveOllamaPath();
+                if (!string.IsNullOrWhiteSpace(ollamaExe))
+                {
+                    await RunProcessAsync(ollamaExe, $"pull {OllamaModel}", 120000);
+                }
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private string ResolveOllamaPath()
+        {
+            if (!string.IsNullOrWhiteSpace(_ollamaExeCached)) return _ollamaExeCached;
+            // 1) Пользовательская переменная окружения (можно задать вручную)
+            var fromEnv = Environment.GetEnvironmentVariable("OLLAMA_PATH");
+            if (!string.IsNullOrWhiteSpace(fromEnv) && File.Exists(fromEnv))
+                return _ollamaExeCached = fromEnv;
+            // 2) Типичные пути установки
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Ollama", "ollama.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Ollama", "ollama.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama", "ollama.exe"),
+                "ollama.exe",
+                "ollama" // на случай, если доступно в PATH как имя без расширения
+            };
+            foreach (var p in candidates)
+            {
+                try { if (File.Exists(p)) return _ollamaExeCached = p; } catch { }
+            }
+            return null;
+        }
+
+        private static async Task<int> RunProcessAsync(string fileName, string arguments, int timeoutMs)
+        {
+            var psi = new ProcessStartInfo //Готовим старт: без окна, без шелла, с редиректом вывода/ошибок.
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using (var p = new Process { StartInfo = psi })
+            {
+                p.Start();
+                var exited = await Task.Run(() => p.WaitForExit(timeoutMs));//Ждём завершения процесса с таймаутом (не блокируем UI).
+                if (!exited)
+                {
+                    try { p.Kill(); } catch { }
+                    throw new TimeoutException($"Процесс {fileName} {arguments} превысил таймаут {timeoutMs} мс");//Если не уложился — прибиваем и кидаем исключение.
+                }
+                return p.ExitCode;
+            }
+        }
+
 
         public async Task<string> AskAiAsync(string userQuestion, string apiKey)
         {
-
+            userQuestion = textBox1.Text;
             using (HttpClient client = new HttpClient())
             {
                 string questionText = textBox1.Text;
@@ -44,47 +158,40 @@ namespace v22
                 }
                 try
                 {
-                    client.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", apiKey);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Ошибка на этапе авторизации Bearer token" + ex.Message);
-                    return ex.Message;
-                }
-                try
-                {
+                    // Вызов локального сервера Ollama без токена
                     var payload = new
                     {
-                        model = "",
+                        model = "qwen2.5:0.5b-instruct-q4_K_M",
                         messages = new object[]
                         {
-                        new {role = "system", content = "Ты помощник.Отвечай кратко и на русском языке"},
-                        new {role = "user", content = questionText }
-                        }
+                            new { role = "system", content = "Ты помощник. Отвечай кратко и на русском языке." },
+                            new { role = "user", content = questionText }
+                        },
+                        stream = false
                     };
-
                     var json = JsonSerializer.Serialize(payload);
                     using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
                     {
                         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                        content.Headers.Add("Content Language", "ru-RU");
+                        // Правильное имя заголовка без пробела: Content-Language
+                        content.Headers.ContentLanguage.Add("ru-RU");
+                        // Настраиваем заголовки ЗАРАНЕЕ, до отправки запроса
+                        client.DefaultRequestHeaders.Accept.Clear();
+                        var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
+                        var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
+                        client.DefaultRequestHeaders.Accept.Add(acceptJson);
+                        client.DefaultRequestHeaders.Accept.Add(acceptHtml);
+                        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
+                        client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                         int retryCount = 0;
                         int maxRetries = 3;
                         while (retryCount < maxRetries)
                         {
                             try
                             {
-                                using (var rep = await client.PostAsync("URL", content))
+                                using (var rep = await client.PostAsync("http://localhost:11434/api/chat", content))
                                 {
-                                    client.DefaultRequestHeaders.Accept.Clear();
-                                    var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
-                                    var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
-                                    client.DefaultRequestHeaders.Accept.Add(acceptJson);
-                                    client.DefaultRequestHeaders.Accept.Add(acceptHtml);
-                                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                                    client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
-                                    client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                                     foreach (var header in rep.Headers)
                                     {
                                         MessageBox.Show($"Заголовок: {header.Key} = {string.Join(", ", header.Value)}");
@@ -106,12 +213,26 @@ namespace v22
                                         var result = await rep.Content.ReadAsStringAsync();
                                         using (var doc = JsonDocument.Parse(result))
                                         {
-                                            var answer = doc.RootElement;
-                                            var choise = answer.GetProperty("choices")[0];
-                                            var message = answer.GetProperty("message");
-                                            var content1 = answer.GetProperty("content");
-                                            var none = answer.GetString() ?? "пустой ответ";
-                                            return label1.Text = answer.GetString();
+                                            var root = doc.RootElement;
+                                            string contentStr = null;
+                                            if (root.TryGetProperty("message", out var messageEl) && messageEl.ValueKind == JsonValueKind.Object && messageEl.TryGetProperty("content", out var contentEl) && contentEl.ValueKind == JsonValueKind.String)
+                                            {
+                                                contentStr = contentEl.GetString();
+                                            }
+                                            if (string.IsNullOrWhiteSpace(contentStr))
+                                            {
+                                                // Фолбэк для других форматов
+                                                if (root.TryGetProperty("response", out var respEl) && respEl.ValueKind == JsonValueKind.String)
+                                                {
+                                                    contentStr = respEl.GetString();
+                                                }
+                                            }
+                                            if (string.IsNullOrWhiteSpace(contentStr))
+                                            {
+                                                contentStr = "Пустой ответ";
+                                            }
+                                            label1.Text = contentStr;
+                                            return contentStr;
                                         }
                                     }
                                     else
@@ -262,9 +383,19 @@ namespace v22
                 return false;
             }
         }
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
-            AskAiAsync(textBox1.Text, apiKey);
+            var ok = await EnsureOllamaAsync();
+            if (!ok)
+            {
+                MessageBox.Show("Не удалось запустить Ollama. Убедитесь, что Ollama установлена и доступна в PATH.");
+                return;
+            }
+            var answer = await AskAiAsync(textBox1.Text, apiKey);
+            if (!string.IsNullOrWhiteSpace(answer))
+            {
+                label1.Text = answer;
+            }
         }
     }
 }
