@@ -26,16 +26,115 @@ namespace v22
         private string _ollamaExeCached;
         private readonly string _Login;
         private readonly string _Email;
+        private static bool _ollamaInstalled = false; // статический флаг для установки
+
         public TEXTSUPPORT(string Login, string Email)
         {
             InitializeComponent();
             _Login = Login;
             _Email = Email;
-            // Инициализация apiKey - вам нужно будет установить правильное значение
-            apiKey = "your-api-key-here"; // Замените на ваш реальный API ключ
-            
+            bdnew();
+            openollama();          
         }
-
+        private void openollama()
+        {
+            // Проверяем, не установлена ли уже Ollama
+            if (_ollamaInstalled) return;
+            
+            // Проверяем, есть ли уже установленная Ollama в системе
+            if (IsOllamaAlreadyInstalled())
+            {
+                _ollamaInstalled = true;
+                return;
+            }
+            
+            string basedirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string fullpath = Path.Combine(basedirectory, "Resuorces", "OllamaSetup.exe");
+                try
+                {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = fullpath,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                    Process.Start(psi);
+                    _ollamaInstalled = true; // Помечаем как установленную
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Возникла ошибка запуска Ollama: " + ex.Message);
+                }
+        }
+        
+        private bool IsOllamaAlreadyInstalled()
+        {
+            // Проверяем типичные пути установки Ollama
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Ollama", "ollama.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Ollama", "ollama.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama", "ollama.exe")
+            };
+            
+            foreach (var path in candidates)
+            {
+                if (File.Exists(path))
+                {
+                    return true;
+                }
+            }
+            
+            // Проверяем, доступна ли ollama в PATH
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "ollama",
+                    Arguments = "--version",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                
+                using (var process = Process.Start(psi))
+                {
+                    if (process != null)
+                    {
+                        process.WaitForExit(3000); // Ждем максимум 3 секунды
+                        return process.ExitCode == 0;
+                        MessageBox.Show("Ollama уже установлена!");
+                    }
+                }
+            }
+            catch
+            {
+                dowloadollama();
+            }
+            
+            return false;
+        }
+        
+        private void dowloadollama()
+        {
+            string basedirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string fullpath = Path.Combine(basedirectory, "Resuorces", "Ollama", "ollama.exe");
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = fullpath,
+                        UseShellExecute = true,
+                        Verb = "runas"
+                    };
+                    Process.Start(psi);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Возникла ошибка запуска Ollama: " + ex.Message);
+                }
+        }
         private async Task<bool> EnsureOllamaAsync()
         {
             // 1) Проверяем доступность локального API
@@ -54,32 +153,6 @@ namespace v22
                         }
                         return true;
                     }
-                }
-            }
-            catch { }
-
-            // 3) Пытаемся запустить сервер Ollama в пользовательском режиме
-            try
-            {
-                var ollamaExe = ResolveOllamaPath();
-                if (!string.IsNullOrWhiteSpace(ollamaExe))
-                {
-                    await RunProcessAsync(ollamaExe, "serve", 2000);
-                }
-            }
-            catch { }
-
-            // 4) Повторная проверка доступности (несколько попыток)
-            try
-            {
-                for (int i = 0; i < 5; i++)
-                {
-                    using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) })
-                    {
-                        var res = await http.GetAsync("http://localhost:11434/api/tags");
-                        if (res.IsSuccessStatusCode) break;
-                    }
-                    await Task.Delay(800);
                 }
             }
             catch { return false; }
@@ -144,9 +217,10 @@ namespace v22
             }
         }
 
-
+        
         public async Task<string> AskAiAsync(string userQuestion, string apiKey)
         {
+            // Не сбрасываем состояние чекбоксов, пользователь сам выбирает режим
             userQuestion = textBox1.Text;
             using (HttpClient client = new HttpClient())
             {
@@ -161,7 +235,7 @@ namespace v22
                     // Вызов локального сервера Ollama без токена
                     var payload = new
                     {
-                        model = "qwen2.5:0.5b-instruct-q4_K_M",
+                        model = OllamaModel,
                         messages = new object[]
                         {
                             new { role = "system", content = "Ты помощник. Отвечай кратко и на русском языке." },
@@ -169,13 +243,28 @@ namespace v22
                         },
                         stream = false
                     };
-                    var json = JsonSerializer.Serialize(payload);
-                    using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
+
+                    var payload2 = new
+                    {
+                        model = OllamaModel,
+                        messages = new object[]
+                        {
+                            new { role = "system", content = "Ты помощник. Отвечай не объемно, но раскрывая тему, на английском языке." },
+                            new { role = "user", content = questionText }
+                        },
+                        stream = false
+                    };
+
+                    // Выбор активного payload по чекбоксам: по умолчанию payload, если выбран checkBox2 — используем payload2
+                    var usePayload2 = (this.checkBox2 != null && this.checkBox2.Checked);
+                    var selectedPayload = usePayload2 ? payload2 : payload;
+                    string endpoint = "http://localhost:11434/api/chat"; // оба варианта совместимы с chat API
+
+                    var jsonSelected = JsonSerializer.Serialize(selectedPayload);
+                    using (var content = new StringContent(jsonSelected, Encoding.UTF8, "application/json"))
                     {
                         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                        // Правильное имя заголовка без пробела: Content-Language
                         content.Headers.ContentLanguage.Add("ru-RU");
-                        // Настраиваем заголовки ЗАРАНЕЕ, до отправки запроса
                         client.DefaultRequestHeaders.Accept.Clear();
                         var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
                         var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
@@ -190,26 +279,26 @@ namespace v22
                         {
                             try
                             {
-                                using (var rep = await client.PostAsync("http://localhost:11434/api/chat", content))
+                                using (var rep = await client.PostAsync(endpoint, content))
                                 {
-                                    foreach (var header in rep.Headers)
-                                    {
-                                        MessageBox.Show($"Заголовок: {header.Key} = {string.Join(", ", header.Value)}");
-                                    }
-                                    if (rep.Headers.TryGetValues("Server", out var serverValues))
-                                    {
-                                        MessageBox.Show($"Сервер: {string.Join(", ", serverValues)}");
-                                    }
-                                    if (rep.Headers.TryGetValues("Date", out var datevalues))
-                                    {
-                                        MessageBox.Show($"Date: {string.Join(", ", datevalues)}");
-                                    }
+                                    //foreach (var header in rep.Headers)
+                                    //{
+                                    //    MessageBox.Show($"Заголовок: {header.Key} = {string.Join(", ", header.Value)}");
+                                    //}
+                                    //if (rep.Headers.TryGetValues("Server", out var serverValues))
+                                    //{
+                                    //    MessageBox.Show($"Сервер: {string.Join(", ", serverValues)}");
+                                    //}
+                                    //if (rep.Headers.TryGetValues("Date", out var datevalues))
+                                    //{
+                                    //    MessageBox.Show($"Date: {string.Join(", ", datevalues)}");
+                                    //}
                                     if (rep.IsSuccessStatusCode)
                                     {
-                                        MessageBox.Show($"Content type: {rep.Content.Headers.ContentType}");
-                                        MessageBox.Show($"Lenght: {rep.Content.Headers.ContentLength}");
-                                        MessageBox.Show($"Content Location: {rep.Content.Headers.ContentLocation}");
-                                        MessageBox.Show($"Content Encoding: {rep.Content.Headers.ContentEncoding}");
+                                        //MessageBox.Show($"Content type: {rep.Content.Headers.ContentType}");
+                                        //MessageBox.Show($"Lenght: {rep.Content.Headers.ContentLength}");
+                                        //MessageBox.Show($"Content Location: {rep.Content.Headers.ContentLocation}");
+                                        //MessageBox.Show($"Content Encoding: {rep.Content.Headers.ContentEncoding}");
                                         var result = await rep.Content.ReadAsStringAsync();
                                         using (var doc = JsonDocument.Parse(result))
                                         {
@@ -231,7 +320,12 @@ namespace v22
                                             {
                                                 contentStr = "Пустой ответ";
                                             }
-                                            label1.Text = contentStr;
+                                            textBox2.Multiline = true;
+                                            textBox2.ScrollBars = ScrollBars.Both;
+                                            textBox2.Dock = DockStyle.Fill;
+                                            textBox2.WordWrap = true;
+                                            textBox2.ReadOnly = true;
+                                            textBox2.Text = contentStr;
                                             return contentStr;
                                         }
                                     }
@@ -257,24 +351,30 @@ namespace v22
                 }
             }
         }
-        public bool dobavitzap()
+        public bool dobavitzap(string contentStr = null)
         {
+            // Не сохраняем, если нет ответа
+            if (string.IsNullOrEmpty(contentStr))
+            {
+                return false;
+            }
+            
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
             string Login = _Login;
             string Email = _Email;
-            string answer = textBox1.Text;
-            string zap = answer;
+            string questin = textBox1.Text;
+            string zap = contentStr;
             if (System.IO.File.Exists("UserBase.db"))
             {
                 try
                 {
-                    using (var das = new SQLiteConnection(dbPath))
+                    using (var das = new SQLiteConnection($"Data Source={dbPath}"))
                     {
                         das.Open();
-                        var gg = new SQLiteCommand("INSERT INTO [Users] (Login,userQuestion,answer,Email) VALUES (@L,@U,@A,@E)", das);
+                        var gg = new SQLiteCommand("INSERT INTO [UsersZAp] (Login,userQuestion,answer,Email) VALUES (@L,@U,@A,@E)", das);
                         {
                             gg.Parameters.AddWithValue("@L", Login);
-                            gg.Parameters.AddWithValue("@U", answer);
+                            gg.Parameters.AddWithValue("@U", questin);
                             gg.Parameters.AddWithValue("@A", zap);
                             gg.Parameters.AddWithValue("@E", Email);
                             gg.ExecuteNonQuery();
@@ -309,24 +409,24 @@ namespace v22
                     var hgt = await clienthttp.GetAsync("https://www.gutenberg.org/files/11/11-0.txt");
                     if (hgt.IsSuccessStatusCode)
                     {
-                        MessageBox.Show($"Concept Type: {hgt.Content.Headers.ContentType}");
-                        MessageBox.Show($"Language: {hgt.Content.Headers.ContentLanguage}");
-                        MessageBox.Show($"Encoding: {hgt.Content.Headers.ContentEncoding}");
-                        MessageBox.Show($"Disposition: {hgt.Content.Headers.ContentDisposition}");
-                        MessageBox.Show($"Lenght: {hgt.Content.Headers.ContentLength}");
-                        MessageBox.Show($"Location: {hgt.Content.Headers.ContentLength}");
-                        foreach (var hear in hgt.Headers)
-                        {
-                            MessageBox.Show($"Заголовок {hear.Key} = {string.Join(",", hear.Value)}");
-                        }
-                        if (hgt.Headers.TryGetValues("Server", out var serverValue))
-                        {
-                            MessageBox.Show($"Server= {string.Join(",", serverValue)}");
-                        }
-                        if (hgt.Headers.TryGetValues("Date", out var datevalue))
-                        {
-                            MessageBox.Show($"Date {string.Join(",", datevalue)}");
-                        }
+                        //MessageBox.Show($"Concept Type: {hgt.Content.Headers.ContentType}");
+                        //MessageBox.Show($"Language: {hgt.Content.Headers.ContentLanguage}");
+                        //MessageBox.Show($"Encoding: {hgt.Content.Headers.ContentEncoding}");
+                        //MessageBox.Show($"Disposition: {hgt.Content.Headers.ContentDisposition}");
+                        //MessageBox.Show($"Lenght: {hgt.Content.Headers.ContentLength}");
+                        //MessageBox.Show($"Location: {hgt.Content.Headers.ContentLength}");
+                        //foreach (var hear in hgt.Headers)
+                        //{
+                        //    MessageBox.Show($"Заголовок {hear.Key} = {string.Join(",", hear.Value)}");
+                        //}
+                        //if (hgt.Headers.TryGetValues("Server", out var serverValue))
+                        //{
+                        //    MessageBox.Show($"Server= {string.Join(",", serverValue)}");
+                        //}
+                        //if (hgt.Headers.TryGetValues("Date", out var datevalue))
+                        //{
+                        //    MessageBox.Show($"Date {string.Join(",", datevalue)}");
+                        //}
                         string filename = "downloaded_file.txt";
                         var drs = hgt.Content.Headers.ContentDisposition;
                         if (drs != null && !string.IsNullOrEmpty(drs.FileName))
@@ -364,18 +464,27 @@ namespace v22
                 using (var das = new SQLiteConnection($"Data Source={dbPath}"))
                 {
                     das.Open();
+                    
                     var createTableCommand = new SQLiteCommand(
                        @"CREATE TABLE IF NOT EXISTS [UsersZAp] (
                                 [ID] INTEGER PRIMARY KEY AUTOINCREMENT,
-                                [Login] TEXT NOT NULL UNIQUE,
+                                [Login] TEXT NOT NULL,
                                 [userQuestion] TEXT NOT NULL,
                                 [answer] TEXT NOT NULL,
-                                [Email] TEXT NOT NULL
+                                [Email] TEXT
                             )", das);
                     createTableCommand.ExecuteNonQuery();
+                    // Добавляем поле Email если его нет (для существующих таблиц)
+                    try
+                    {
+                        var alterTableCommand = new SQLiteCommand("ALTER TABLE [UsersZAp] ADD COLUMN [Email] TEXT", das);
+                        alterTableCommand.ExecuteNonQuery();
+                    }
+                    catch
+                    {
+                    }                 
                     return true;
-                }
-                //         
+                }     
             }
             catch(Exception ex)
             {
@@ -386,16 +495,58 @@ namespace v22
         private async void button1_Click(object sender, EventArgs e)
         {
             var ok = await EnsureOllamaAsync();
+            // Если не удалось автоматически поднять, не блокируем — пробуем отправить запрос прямо сейчас
             if (!ok)
             {
-                MessageBox.Show("Не удалось запустить Ollama. Убедитесь, что Ollama установлена и доступна в PATH.");
-                return;
+                // опциональное уведомление, но без остановки
+                MessageBox.Show("Локальный сервер Ollama не запущен автоматически. Выполняю попытку запроса...");
             }
             var answer = await AskAiAsync(textBox1.Text, apiKey);
             if (!string.IsNullOrWhiteSpace(answer))
             {
-                label1.Text = answer;
+                textBox2.Text = answer;
+                dobavitzap(answer);
             }
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void btnMinimize_Click(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+        }
+
+        // Переменные для перетаскивания окна
+        private bool dragging = false;
+        private Point dragCursorPoint;
+        private Point dragFormPoint;
+
+        private void panelTop_MouseDown(object sender, MouseEventArgs e)
+        {
+            dragging = true;
+            dragCursorPoint = Cursor.Position;
+            dragFormPoint = this.Location;
+        }
+
+        private void panelTop_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (dragging)
+            {
+                Point dif = Point.Subtract(Cursor.Position, new Size(dragCursorPoint));
+                this.Location = Point.Add(dragFormPoint, new Size(dif));
+            }
+        }
+
+        private void panelTop_MouseUp(object sender, MouseEventArgs e)
+        {
+            dragging = false;
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            textBox2.Clear();
         }
     }
 }
