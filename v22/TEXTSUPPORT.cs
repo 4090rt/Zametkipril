@@ -14,6 +14,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Security.Cryptography;
 
 namespace v22
 {
@@ -115,7 +116,29 @@ namespace v22
             
             return false;
         }
-        
+        static string hash(string requestBodyHash)
+        {
+            try
+            {
+                using (SHA256 sHA256 = SHA256.Create())
+                {
+                    byte[] bytes = sHA256.ComputeHash(Encoding.UTF8.GetBytes(requestBodyHash));
+                    StringBuilder build = new StringBuilder();
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        build.Append(bytes[0].ToString("x2"));
+                    }
+                    return build.ToString();
+                }
+            }
+            catch (Exception ex)
+            { 
+                MessageBox.Show(ex.Message);
+                return "EROR";
+            }
+        }
+
+
         private void dowloadollama()
         {
             string basedirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -222,6 +245,7 @@ namespace v22
         {
             // Не сбрасываем состояние чекбоксов, пользователь сам выбирает режим
             userQuestion = textBox1.Text;
+
             using (HttpClient client = new HttpClient())
             {
                 string questionText = textBox1.Text;
@@ -261,6 +285,11 @@ namespace v22
                     string endpoint = "http://localhost:11434/api/chat"; // оба варианта совместимы с chat API
 
                     var jsonSelected = JsonSerializer.Serialize(selectedPayload);
+                    var key = "fgfgfg";
+                    string time = DateTime.UtcNow.ToString("O");
+                    string met = $"POST";
+                    string apiPath = "/api/chat";
+                    string requestBodyHash = hash(jsonSelected);
                     using (var content = new StringContent(jsonSelected, Encoding.UTF8, "application/json"))
                     {
                         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
