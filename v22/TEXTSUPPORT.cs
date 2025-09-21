@@ -37,7 +37,7 @@ namespace v22
             bdnew();
             openollama();          
         }
-        private void openollama()
+        private void openollama()// октрытие5 ollama и проверка есть ли она - в противном случае устанавливаем и помечаем как установленную
         {
             // Проверяем, не установлена ли уже Ollama
             if (_ollamaInstalled) return;
@@ -68,7 +68,7 @@ namespace v22
                 }
         }
         
-        private bool IsOllamaAlreadyInstalled()
+        private bool IsOllamaAlreadyInstalled()// проверка на наличие установленной ollama
         {
             // Проверяем типичные пути установки Ollama
             var candidates = new[]
@@ -84,9 +84,7 @@ namespace v22
                 {
                     return true;
                 }
-            }
-            
-            // Проверяем, доступна ли ollama в PATH
+            }           
             try
             {
                 var psi = new ProcessStartInfo
@@ -116,30 +114,7 @@ namespace v22
             
             return false;
         }
-        static string hash(string requestBodyHash)
-        {
-            try
-            {
-                using (SHA256 sHA256 = SHA256.Create())
-                {
-                    byte[] bytes = sHA256.ComputeHash(Encoding.UTF8.GetBytes(requestBodyHash));
-                    StringBuilder build = new StringBuilder();
-                    for (int i = 0; i < bytes.Length; i++)
-                    {
-                        build.Append(bytes[0].ToString("x2"));
-                    }
-                    return build.ToString();
-                }
-            }
-            catch (Exception ex)
-            { 
-                MessageBox.Show(ex.Message);
-                return "EROR";
-            }
-        }
-
-
-        private void dowloadollama()
+        private void dowloadollama()// запуск установщика ollama
         {
             string basedirectory = AppDomain.CurrentDomain.BaseDirectory;
             string fullpath = Path.Combine(basedirectory, "Resuorces", "Ollama", "ollama.exe");
@@ -158,7 +133,7 @@ namespace v22
                     MessageBox.Show("Возникла ошибка запуска Ollama: " + ex.Message);
                 }
         }
-        private async Task<bool> EnsureOllamaAsync()
+        private async Task<bool> EnsureOllamaAsync()// проверка - включенный ли сервер, отвечает ли он  также если сервер ответ  - сразу запрос - в противном случае запускет установку
         {
             // 1) Проверяем доступность локального API
             try
@@ -193,14 +168,14 @@ namespace v22
             catch { return false; }
         }
 
-        private string ResolveOllamaPath()
+        private string ResolveOllamaPath()// метод делает гибким поиск исполняемого файла
         {
-            if (!string.IsNullOrWhiteSpace(_ollamaExeCached)) return _ollamaExeCached;
+            if (!string.IsNullOrWhiteSpace(_ollamaExeCached)) return _ollamaExeCached;//Если путь уже был найден ранее, возвращает его из кэша.
             // 1) Пользовательская переменная окружения (можно задать вручную)
-            var fromEnv = Environment.GetEnvironmentVariable("OLLAMA_PATH");
+            var fromEnv = Environment.GetEnvironmentVariable("OLLAMA_PATH");//Ищет пользовательскую переменную окружения OLLAMA_PATH.
             if (!string.IsNullOrWhiteSpace(fromEnv) && File.Exists(fromEnv))
                 return _ollamaExeCached = fromEnv;
-            // 2) Типичные пути установки
+            // 2) Поиск в стандартных путях установки
             var candidates = new[]
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Ollama", "ollama.exe"),
@@ -209,6 +184,7 @@ namespace v22
                 "ollama.exe",
                 "ollama" // на случай, если доступно в PATH как имя без расширения
             };
+            //Проверяет существование файла для каждого пути.
             foreach (var p in candidates)
             {
                 try { if (File.Exists(p)) return _ollamaExeCached = p; } catch { }
@@ -240,7 +216,28 @@ namespace v22
             }
         }
 
-        
+        static string hash(string requestBodyHash)
+        {
+            try
+            {
+                using (SHA256 sHA256 = SHA256.Create())
+                {
+                    byte[] bytes = sHA256.ComputeHash(Encoding.UTF8.GetBytes(requestBodyHash));
+                    StringBuilder build = new StringBuilder();
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        build.Append(bytes[0].ToString("x2"));
+                    }
+                    return build.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return "EROR";
+            }
+        }
+
         public async Task<string> AskAiAsync(string userQuestion, string apiKey)
         {
             // Не сбрасываем состояние чекбоксов, пользователь сам выбирает режим
@@ -380,111 +377,68 @@ namespace v22
                 }
             }
         }
-        public bool dobavitzap(string contentStr = null)
-        {
-            // Не сохраняем, если нет ответа
-            if (string.IsNullOrEmpty(contentStr))
-            {
-                return false;
-            }
-            
-            string dbPath = System.IO.Path.GetFullPath("UserBase.db");
-            string Login = _Login;
-            string Email = _Email;
-            string questin = textBox1.Text;
-            string zap = contentStr;
-            if (System.IO.File.Exists("UserBase.db"))
-            {
-                try
-                {
-                    using (var das = new SQLiteConnection($"Data Source={dbPath}"))
-                    {
-                        das.Open();
-                        var gg = new SQLiteCommand("INSERT INTO [UsersZAp] (Login,userQuestion,answer,Email) VALUES (@L,@U,@A,@E)", das);
-                        {
-                            gg.Parameters.AddWithValue("@L", Login);
-                            gg.Parameters.AddWithValue("@U", questin);
-                            gg.Parameters.AddWithValue("@A", zap);
-                            gg.Parameters.AddWithValue("@E", Email);
-                            gg.ExecuteNonQuery();
-                            return true;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Ошибка Сохранения данных запроса" + ex.Message);
-                    return false;
-                }
-            }
-            else
-            {
-                MessageBox.Show("БД не найдена");
-                return false;
-            }
-        }
-        private async Task dowload1(string[] args)
-        {
-            try
-            {
-                using (HttpClient clienthttp = new HttpClient())
-                {
-                    clienthttp.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");//Заголовок запроса
-                    clienthttp.DefaultRequestHeaders.Add("Accept", "text/plain,text/html,application/json,text/*");// заголовк запроса
-                    clienthttp.DefaultRequestHeaders.Add("Accept-language", "ru-RU,ru;q=0.9,en;q=0.8");//заголовок запроса
-                    clienthttp.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json", 1.0));
-                    clienthttp.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html", 0.9));
-                    clienthttp.DefaultRequestHeaders.Referrer = new Uri("https://github.com/"); // заголовок запроса
-                    var hgt = await clienthttp.GetAsync("https://www.gutenberg.org/files/11/11-0.txt");
-                    if (hgt.IsSuccessStatusCode)
-                    {
-                        //MessageBox.Show($"Concept Type: {hgt.Content.Headers.ContentType}");
-                        //MessageBox.Show($"Language: {hgt.Content.Headers.ContentLanguage}");
-                        //MessageBox.Show($"Encoding: {hgt.Content.Headers.ContentEncoding}");
-                        //MessageBox.Show($"Disposition: {hgt.Content.Headers.ContentDisposition}");
-                        //MessageBox.Show($"Lenght: {hgt.Content.Headers.ContentLength}");
-                        //MessageBox.Show($"Location: {hgt.Content.Headers.ContentLength}");
-                        //foreach (var hear in hgt.Headers)
-                        //{
-                        //    MessageBox.Show($"Заголовок {hear.Key} = {string.Join(",", hear.Value)}");
-                        //}
-                        //if (hgt.Headers.TryGetValues("Server", out var serverValue))
-                        //{
-                        //    MessageBox.Show($"Server= {string.Join(",", serverValue)}");
-                        //}
-                        //if (hgt.Headers.TryGetValues("Date", out var datevalue))
-                        //{
-                        //    MessageBox.Show($"Date {string.Join(",", datevalue)}");
-                        //}
-                        string filename = "downloaded_file.txt";
-                        var drs = hgt.Content.Headers.ContentDisposition;
-                        if (drs != null && !string.IsNullOrEmpty(drs.FileName))
-                        {
-                            filename = drs.FileName.Trim('"');
-                        }
-                        string filetaph = @"C:\Users\artem\Downloads";
-                        if (!Directory.Exists(filetaph))
-                        {
-                            Directory.CreateDirectory(filetaph);
-                        }
-                        string fullpath = Path.Combine(filetaph, filename);
-                        byte[] bytes = await hgt.Content.ReadAsByteArrayAsync();
-                        File.WriteAllBytes(fullpath, bytes);
-                        MessageBox.Show($"рАЗМЕР ФАЙЛА БТ {bytes.Length}");
-                        MessageBox.Show($"Файл успешно хзагружен по пути {fullpath}");
-                    }
-                    else
-                    {
-                        MessageBox.Show($"Ошибка {(int)hgt.StatusCode} {hgt.ReasonPhrase}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("EROR" + ex.Message);
-            }
+        //private async Task dowload1(string[] args)
+        //{
+        //    try
+        //    {
+        //        using (HttpClient clienthttp = new HttpClient())
+        //        {
+        //            clienthttp.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");//Заголовок запроса
+        //            clienthttp.DefaultRequestHeaders.Add("Accept", "text/plain,text/html,application/json,text/*");// заголовк запроса
+        //            clienthttp.DefaultRequestHeaders.Add("Accept-language", "ru-RU,ru;q=0.9,en;q=0.8");//заголовок запроса
+        //            clienthttp.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json", 1.0));
+        //            clienthttp.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html", 0.9));
+        //            clienthttp.DefaultRequestHeaders.Referrer = new Uri("https://github.com/"); // заголовок запроса
+        //            var hgt = await clienthttp.GetAsync("https://www.gutenberg.org/files/11/11-0.txt");
+        //            if (hgt.IsSuccessStatusCode)
+        //            {
+        //                //MessageBox.Show($"Concept Type: {hgt.Content.Headers.ContentType}");
+        //                //MessageBox.Show($"Language: {hgt.Content.Headers.ContentLanguage}");
+        //                //MessageBox.Show($"Encoding: {hgt.Content.Headers.ContentEncoding}");
+        //                //MessageBox.Show($"Disposition: {hgt.Content.Headers.ContentDisposition}");
+        //                //MessageBox.Show($"Lenght: {hgt.Content.Headers.ContentLength}");
+        //                //MessageBox.Show($"Location: {hgt.Content.Headers.ContentLength}");
+        //                //foreach (var hear in hgt.Headers)
+        //                //{
+        //                //    MessageBox.Show($"Заголовок {hear.Key} = {string.Join(",", hear.Value)}");
+        //                //}
+        //                //if (hgt.Headers.TryGetValues("Server", out var serverValue))
+        //                //{
+        //                //    MessageBox.Show($"Server= {string.Join(",", serverValue)}");
+        //                //}
+        //                //if (hgt.Headers.TryGetValues("Date", out var datevalue))
+        //                //{
+        //                //    MessageBox.Show($"Date {string.Join(",", datevalue)}");
+        //                //}
+        //                string filename = "downloaded_file.txt";
+        //                var drs = hgt.Content.Headers.ContentDisposition;
+        //                if (drs != null && !string.IsNullOrEmpty(drs.FileName))
+        //                {
+        //                    filename = drs.FileName.Trim('"');
+        //                }
+        //                string filetaph = @"C:\Users\artem\Downloads";
+        //                if (!Directory.Exists(filetaph))
+        //                {
+        //                    Directory.CreateDirectory(filetaph);
+        //                }
+        //                string fullpath = Path.Combine(filetaph, filename);
+        //                byte[] bytes = await hgt.Content.ReadAsByteArrayAsync();
+        //                File.WriteAllBytes(fullpath, bytes);
+        //                MessageBox.Show($"рАЗМЕР ФАЙЛА БТ {bytes.Length}");
+        //                MessageBox.Show($"Файл успешно хзагружен по пути {fullpath}");
+        //            }
+        //            else
+        //            {
+        //                MessageBox.Show($"Ошибка {(int)hgt.StatusCode} {hgt.ReasonPhrase}");
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show("EROR" + ex.Message);
+        //    }
   
-        }
+        //}
         public bool bdnew()
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
@@ -521,6 +475,48 @@ namespace v22
                 return false;
             }
         }
+
+        public bool dobavitzap(string contentStr = null)
+        {
+            if (string.IsNullOrEmpty(contentStr)) return false;
+
+            string dbPath = System.IO.Path.GetFullPath("UserBase.db");
+            string Login = _Login;
+            string Email = _Email;
+            string questin = textBox1.Text;
+            string zap = contentStr;
+
+            if (System.IO.File.Exists("UserBase.db"))
+            {
+                try
+                {
+                    using (var das = new SQLiteConnection($"Data Source={dbPath}"))
+                    {
+                        das.Open();
+                        var gg = new SQLiteCommand("INSERT INTO [UsersZAp] (Login,userQuestion,answer,Email) VALUES (@L,@U,@A,@E)", das);
+                        {
+                            gg.Parameters.AddWithValue("@L", Login);
+                            gg.Parameters.AddWithValue("@U", questin);
+                            gg.Parameters.AddWithValue("@A", zap);
+                            gg.Parameters.AddWithValue("@E", Email);
+                            gg.ExecuteNonQuery();
+                            return true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Ошибка Сохранения данных запроса" + ex.Message);
+                    return false;
+                }
+            }
+            else
+            {
+                MessageBox.Show("БД не найдена");
+                return false;
+            }
+        }
+
         private async void button1_Click(object sender, EventArgs e)
         {
             var ok = await EnsureOllamaAsync();
