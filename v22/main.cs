@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.SqlClient;
+using System.Data.SQLite;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -23,13 +24,14 @@ namespace v22
         {
             InitializeComponent();
             ApplyDarkTheme();
+            CreateDatabase();
             if (panelApiHost == null)
             {
                 panelApiHost = new Panel();
                 // Компактная панель в правом верхнем углу
                 panelApiHost.Dock = DockStyle.None;
                 panelApiHost.Width = 400;
-                panelApiHost.Height = 56;
+                panelApiHost.Height = 450;
                 panelApiHost.BackColor = Color.FromArgb(28, 31, 40);
                 panelApiHost.Anchor = AnchorStyles.Top | AnchorStyles.Right;
                 this.Controls.Add(panelApiHost);
@@ -40,11 +42,11 @@ namespace v22
             }
             _Login = Login;
             _Password = Password;
-            _Email = _Email;
+            _Email = Email;
 
             if (apiForm == null || apiForm.IsDisposed)
             {
-                apiForm = new API(_Login, _Password);
+                apiForm = new API(_Login, "");
                 apiForm.TopLevel = false;                 // ключевое: не отдельное окно
                 apiForm.FormBorderStyle = FormBorderStyle.None;
                 apiForm.Dock = DockStyle.Fill;            // заполнит только панель-хост
@@ -98,7 +100,58 @@ namespace v22
                 StyleControl(child);
             }
         }
+        private async Task<bool> CreateDatabase()
+        {
+            try
+            {
+                // Создаем базу данных SQLite
+                string connectionString = "Data Source=UserBase.db";
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    await connection.OpenAsync().ConfigureAwait(false);
 
+                    // Создаем таблицу Users
+                    string createTableSql = @"
+                        CREATE TABLE IF NOT EXISTS Users (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Login TEXT NOT NULL UNIQUE,
+                            Password TEXT NOT NULL,
+                            City TEXT,
+                            Email TEXT,
+                            CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )";
+
+                    using (var command = new SQLiteCommand(createTableSql, connection))
+                    {
+                        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+
+                    // Создаем индекс для быстрого поиска по логину
+                    string createIndexSql = "CREATE INDEX IF NOT EXISTS idx_users_login ON Users(Login)";
+                    using (var command = new SQLiteCommand(createIndexSql, connection))
+                    {
+                        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+
+                    // Добавляем тестового пользователя (опционально)
+                    string insertTestUserSql = @"
+                        INSERT OR IGNORE INTO Users (Login, Password, City, Email) 
+                        VALUES ('admin', 'admin123', 'Москва', 'admin@example.com')";
+
+                    using (var command = new SQLiteCommand(insertTestUserSql, connection))
+                    {
+                        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка создания базы данных: {ex.Message}");
+                return false;
+            }
+        }
         private void btnClose_Click(object sender, EventArgs e)
         {
             this.Close();
@@ -113,6 +166,13 @@ namespace v22
         {
             TEXTSUPPORT text = new TEXTSUPPORT(_Login,_Email);
             text.Show();
+            this.Hide();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            genericpicture generic = new genericpicture();
+            generic.Show();
             this.Hide();
         }
     }

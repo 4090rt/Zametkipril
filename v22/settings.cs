@@ -164,7 +164,7 @@ namespace v22
             }
         }
         // Метод смены пароля
-        private bool smenaparolya()
+        private async Task <bool> smenaparolya()
         { 
             string newparol = textBox1.Text; string repeatparol = textBox2.Text;
             string Login = _Login; string hashparol = hashpqpass(newparol);
@@ -178,7 +178,7 @@ namespace v22
                 bool reg = Regex.IsMatch(newparol, @"[!@#$%^&*()_+=\[{\]};:<>|./?,-]");
                 if (reg == false)
                 {
-                    MessageBox.Show("Пароль Должен содержать специальные символы! (!@#$%^&*()_+=\\[{\\]};:<>|./?,-)");
+                    MessageBox.Show("Пароль Должен содержать специальные символы! (!@#$%^&*()_+=[{]};:<>|./?,-)");
                     return false;
                 }
                 if (!System.IO.File.Exists("UserBase.db"))
@@ -191,12 +191,12 @@ namespace v22
                 {
                     using (var ds = new SQLiteConnection(vars))
                     {
-                        ds.Open();
+                        await ds.OpenAsync().ConfigureAwait(false);
                         using (var parol = new SQLiteCommand("UPDATE Users SET Password = @NEWP WHERE Login = @L", ds))
                         {
                             parol.Parameters.AddWithValue("@NEWP", hashparol);
                             parol.Parameters.AddWithValue("@L", _Login);
-                            var rowsAffected = parol.ExecuteNonQuery();
+                            var rowsAffected = await parol.ExecuteNonQueryAsync().ConfigureAwait(false);
                             if (rowsAffected > 0)
                             {
                                 MessageBox.Show("Пароль успешно изменён");
@@ -223,7 +223,7 @@ namespace v22
             }
         }
         // Метод смены почты
-        private bool smenapochta()
+        private async Task<bool> smenapochta()
         {
             string newpochta = textBox3.Text;
             string hashpochta = hashEmail(newpochta);
@@ -246,12 +246,12 @@ namespace v22
                 {
                     using (var ds = new SQLiteConnection(vars))
                     {
-                        ds.Open();
+                        await ds.OpenAsync().ConfigureAwait(false);
                         using (var pochta = new SQLiteCommand("UPDATE Users SET Email = @NEWP WHERE Login = @L", ds))
                         {
                             pochta.Parameters.AddWithValue("@NEWP", hashpochta);
                             pochta.Parameters.AddWithValue("@L", _Login);
-                            var rowsAffected = pochta.ExecuteNonQuery();
+                            var rowsAffected = await pochta.ExecuteNonQueryAsync().ConfigureAwait(false);
                             if (rowsAffected > 0)
                             {
                                 MessageBox.Show("Почта успешна изменена");
@@ -281,7 +281,7 @@ namespace v22
 
 
         // Запрос к бд для отображения текущего Логина
-        private bool pokazlogin()
+        private async Task<bool>  pokazlogin()
         {
             if (!System.IO.File.Exists("UserBase.db"))
             {
@@ -293,11 +293,11 @@ namespace v22
             {
                 try
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     using (var fg = new SQLiteCommand("SELECT Login FROM Users WHERE Login = @L", das))
                     {
                         fg.Parameters.AddWithValue("@L", _Login);
-                        var result = fg.ExecuteScalar();
+                        var result = await fg.ExecuteScalarAsync().ConfigureAwait(false);
                         if (result != null)
                         {
                             label1.Text = result.ToString();
@@ -319,7 +319,7 @@ namespace v22
 
         }
         // Запрос к бд для отображения текущей почты
-        private bool pokazpochta()
+        private async Task<bool> pokazpochta()
         {
             if (!System.IO.File.Exists("UserBase.db"))
             {
@@ -330,11 +330,11 @@ namespace v22
             {
                 using (var das = new SQLiteConnection(vars))
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     using (var command = new SQLiteCommand("SELECT Email FROM Users WHERE Login = @L LIMIT 1", das))
                     {
                         command.Parameters.AddWithValue("@L", _Login);
-                        var result = command.ExecuteScalar();
+                        var result = await command.ExecuteScalarAsync().ConfigureAwait(false);
                         if (result != null)
                         {
                             label3.Text = result.ToString();
@@ -356,7 +356,7 @@ namespace v22
             }
         }
         // Запрос к бд для отображения текущего города
-        private bool pokazcity()
+        private async Task<bool> pokazcity()
         {
             if (!System.IO.File.Exists("UserBase.db"))
             {
@@ -367,11 +367,11 @@ namespace v22
             {
                 try
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     using (var fg = new SQLiteCommand("SELECT City FROM Users WHERE Login = @L Limit 1", das))
                     {
                         fg.Parameters.AddWithValue("@L", _Login);
-                        var result = fg.ExecuteScalar();
+                        var result = await fg.ExecuteScalarAsync().ConfigureAwait(false);
                         if (result != null)
                         {
                             label2.Text = result.ToString();
@@ -394,7 +394,7 @@ namespace v22
 
         }
         // Метод Смены Города
-        private bool smenascity() 
+        private async Task<bool> smenascity() 
         {
             label1.Text = _Login;
             string NEWCity = textBoxCity.Text;
@@ -407,12 +407,12 @@ namespace v22
             {
                 try
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     using (var fd = new SQLiteCommand("UPDATE Users SET City = @NEWCity WHERE Login = @L", das))
                     {
                         fd.Parameters.AddWithValue("@NEWCity", NEWCity);
                         fd.Parameters.AddWithValue("@L", _Login);
-                        var result = fd.ExecuteScalar();
+                        var result = await fd.ExecuteScalarAsync().ConfigureAwait(false);
 
                             label2.Text = result?.ToString();
                             MessageBox.Show("Город успешно изменен");
@@ -465,10 +465,12 @@ namespace v22
         {
             try
             {
+
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     Image newavatar = Image.FromFile(openFileDialog.FileName);
                     pictureBox1.Image = newavatar;
+                    Dispose();
                 }
             }
 

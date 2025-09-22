@@ -305,7 +305,7 @@ namespace v22
                         {
                             try
                             {
-                                using (var rep = await client.PostAsync(endpoint, content))
+                                using (var rep = await client.PostAsync(endpoint, content).ConfigureAwait(false))
                                 {
                                     //foreach (var header in rep.Headers)
                                     //{
@@ -325,7 +325,7 @@ namespace v22
                                         //MessageBox.Show($"Lenght: {rep.Content.Headers.ContentLength}");
                                         //MessageBox.Show($"Content Location: {rep.Content.Headers.ContentLocation}");
                                         //MessageBox.Show($"Content Encoding: {rep.Content.Headers.ContentEncoding}");
-                                        var result = await rep.Content.ReadAsStringAsync();
+                                        var result = await rep.Content.ReadAsStringAsync().ConfigureAwait(false);
                                         using (var doc = JsonDocument.Parse(result))
                                         {
                                             var root = doc.RootElement;
@@ -365,7 +365,7 @@ namespace v22
                             catch (HttpRequestException) when (retryCount < maxRetries - 1)
                             {
                                 retryCount++;
-                                await Task.Delay(1000 * retryCount); // Ждём 1, 2, 3 секунды...
+                                await Task.Delay(1000 * retryCount).ConfigureAwait(false); // Ждём 1, 2, 3 секунды...
                             }
                         }
                         return "Ошибка";
@@ -439,14 +439,14 @@ namespace v22
         //    }
   
         //}
-        public bool bdnew()
+        public async Task<bool> bdnew()
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
             try
             {
                 using (var das = new SQLiteConnection($"Data Source={dbPath}"))
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     
                     var createTableCommand = new SQLiteCommand(
                        @"CREATE TABLE IF NOT EXISTS [UsersZAp] (
@@ -456,7 +456,7 @@ namespace v22
                                 [answer] TEXT NOT NULL,
                                 [Email] TEXT
                             )", das);
-                    createTableCommand.ExecuteNonQuery();
+                    await createTableCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
                     // Добавляем поле Email если его нет (для существующих таблиц)
                     try
                     {
@@ -476,7 +476,7 @@ namespace v22
             }
         }
 
-        public bool dobavitzap(string contentStr = null)
+        public async Task<bool> dobavitzap(string contentStr = null)
         {
             if (string.IsNullOrEmpty(contentStr)) return false;
 
@@ -492,14 +492,14 @@ namespace v22
                 {
                     using (var das = new SQLiteConnection($"Data Source={dbPath}"))
                     {
-                        das.Open();
+                        await das.OpenAsync().ConfigureAwait(false);
                         var gg = new SQLiteCommand("INSERT INTO [UsersZAp] (Login,userQuestion,answer,Email) VALUES (@L,@U,@A,@E)", das);
                         {
                             gg.Parameters.AddWithValue("@L", Login);
                             gg.Parameters.AddWithValue("@U", questin);
                             gg.Parameters.AddWithValue("@A", zap);
                             gg.Parameters.AddWithValue("@E", Email);
-                            gg.ExecuteNonQuery();
+                            await gg.ExecuteNonQueryAsync().ConfigureAwait(false);
                             return true;
                         }
                     }

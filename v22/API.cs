@@ -28,36 +28,40 @@ namespace v22
             this.ForeColor = Color.Gainsboro;
             _Login = Login;
             _City = City;
-            pokazcity();
+            _ = pokazcity();
             if (string.IsNullOrEmpty(Login))
             {
                 MessageBox.Show("Ошибка: логин не передан в API");
                 return;
             }
-            weather();
-            pokaztime();
+            _ = weather();
+            _ = pokaztime();
             label1.ForeColor = Color.Gainsboro;
             label2.ForeColor = Color.Gainsboro;
             try { pictureBox1.BackColor = Color.FromArgb(28, 31, 40); } catch {}
         }
 
-        private bool pokazcity()
+        private async Task<bool> pokazcity()
         {
             //MessageBox.Show($"pokazcity: _Login = '{_Login}'");
             if (!System.IO.File.Exists("UserBase.db"))
             {
-                MessageBox.Show("Бд не найден!");
-                return false;
+                // Автоматически создаем базу данных если её нет
+                if (!await CreateDatabase().ConfigureAwait(false))
+                {
+                    MessageBox.Show("Не удалось создать базу данных!");
+                    return false;
+                }
             }
             string vars = "Data Source=UserBase.db";
-            using (var das = new SQLiteConnection(vars))
+            using  (var das = new SQLiteConnection(vars))
             { 
-                das.Open();
+                await das.OpenAsync().ConfigureAwait(false);
                 using (var city = new SQLiteCommand("SELECT City FROM Users WHERE Login = @L LIMIT 1",das))
                 {
                     city.Parameters.AddWithValue("@L", _Login);
                     //MessageBox.Show($"SQL запрос: SELECT City FROM Users WHERE Login = '{_Login}'");
-                    var result = city.ExecuteScalar();
+                    var result = await city.ExecuteScalarAsync().ConfigureAwait(false);
                     //MessageBox.Show($"SQL результат: {result}");
                     if (result != null && result != DBNull.Value && !string.IsNullOrWhiteSpace(result.ToString()))
                     {
@@ -83,7 +87,7 @@ namespace v22
 
                 using (HttpClient client = new HttpClient())
                 {
-                    HttpResponseMessage recpon = await client.GetAsync(URL);
+                    HttpResponseMessage recpon = await client.GetAsync(URL).ConfigureAwait(false);
                     client.DefaultRequestHeaders.Accept.Clear();
                     var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
                     var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
@@ -93,27 +97,27 @@ namespace v22
                     client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
                     client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                     recpon.EnsureSuccessStatusCode();
-                    string result = await recpon.Content.ReadAsStringAsync();
+                    string result = await recpon.Content.ReadAsStringAsync().ConfigureAwait(false);
                     
                     if (recpon.IsSuccessStatusCode)
                     {
-                        MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
-                        MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
-                        MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
-                        MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
-                        MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
-                        foreach (var heah in recpon.Headers)
-                        {
-                            MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
-                        }
-                        if (recpon.Headers.TryGetValues("Server", out var servervalues))
-                        {
-                            MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
-                        }
-                        if (recpon.Headers.TryGetValues("Date", out var datevalues))
-                        {
-                            MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
-                        }
+                        //MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
+                        //MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
+                        //MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
+                        //MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
+                        //MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
+                        //foreach (var heah in recpon.Headers)
+                        //{
+                        //    MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
+                        //}
+                        //if (recpon.Headers.TryGetValues("Server", out var servervalues))
+                        //{
+                        //    MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
+                        //}
+                        //if (recpon.Headers.TryGetValues("Date", out var datevalues))
+                        //{
+                        //    MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
+                        //}
                         using (JsonDocument json = JsonDocument.Parse(result))
                         {
                             JsonElement root = json.RootElement;
@@ -132,6 +136,7 @@ namespace v22
                             }
 
                             label2.Text = string.IsNullOrWhiteSpace(timeinfo) ? "Время недоступно" : timeinfo;
+                            label2.Location = new Point(100, 55);
                         }
                     }
                     else
@@ -156,7 +161,7 @@ namespace v22
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    HttpResponseMessage recpon = await client.GetAsync(URL);
+                    HttpResponseMessage recpon = await client.GetAsync(URL).ConfigureAwait(false);
                     client.DefaultRequestHeaders.Accept.Clear();
                     var acceptJson = new MediaTypeWithQualityHeaderValue("application/json") { Quality = 1.0 };
                     var acceptHtml = new MediaTypeWithQualityHeaderValue("text/html") { Quality = 0.9 };
@@ -166,26 +171,26 @@ namespace v22
                     client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ru-RU,ru;q=0.9,en;q=0.8");
                     client.DefaultRequestHeaders.Referrer = new Uri("https://github.com/");
                     recpon.EnsureSuccessStatusCode();
-                    string res = await recpon.Content.ReadAsStringAsync();
+                    string res = await recpon.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (recpon.IsSuccessStatusCode)
                     {
-                        MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
-                        MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
-                        MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
-                        MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
-                        MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
-                        foreach (var heah in recpon.Headers)
-                        {
-                            MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
-                        }
-                        if (recpon.Headers.TryGetValues("Server", out var servervalues))
-                        {
-                            MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
-                        }
-                        if (recpon.Headers.TryGetValues("Date", out var datevalues))
-                        {
-                            MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
-                        }
+                        //MessageBox.Show($"Content Type {recpon.Content.Headers.ContentType}");
+                        //MessageBox.Show($"Lenght {recpon.Content.Headers.ContentLength}");
+                        //MessageBox.Show($"Encoding {recpon.Content.Headers.ContentEncoding}");
+                        //MessageBox.Show($"Disposition {recpon.Content.Headers.ContentDisposition}");
+                        //MessageBox.Show($"Language {recpon.Content.Headers.ContentLanguage}");
+                        //foreach (var heah in recpon.Headers)
+                        //{
+                        //    MessageBox.Show($"Заголовок: {heah.Key} = {string.Join(", ", heah.Value)}");
+                        //}
+                        //if (recpon.Headers.TryGetValues("Server", out var servervalues))
+                        //{
+                        //    MessageBox.Show($"SERVER:{string.Join(", ", servervalues)}");
+                        //}
+                        //if (recpon.Headers.TryGetValues("Date", out var datevalues))
+                        //{
+                        //    MessageBox.Show($"DARE:{string.Join(", ", datevalues)}");
+                        //}
                         using (JsonDocument json = JsonDocument.Parse(res))
                         {
                             JsonElement root = json.RootElement;
@@ -198,12 +203,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.pasmurno1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(15, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
                                 }
                                 catch (Exception ex)
                                 {
@@ -217,10 +221,10 @@ namespace v22
                                 {
                                     pictureBox1.Image = Properties.Resources.iacno1;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
 
                                 }
                                 catch (Exception ex)
@@ -233,12 +237,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.oblacno1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
                                 }
                                 catch (Exception ex)
                                 {
@@ -251,12 +254,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.peremennaiaoblach1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
                                 }
                                 catch (Exception ex)
                                 {
@@ -270,12 +272,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.osadki1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
                                 }
                                 catch (Exception ex)
                                 {
@@ -288,12 +289,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.Groza1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
 
                                 }
                                 catch (Exception ex)
@@ -307,12 +307,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.sneg1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 10);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
 
                                 }
                                 catch (Exception ex)
@@ -326,12 +325,11 @@ namespace v22
                                 try
                                 {
                                     pictureBox1.Image = Properties.Resources.osadki1;
-                                    pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
                                     pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
-                                    pictureBox1.Width = 30;
-                                    pictureBox1.Height = 30;
-                                    pictureBox1.Location = new Point(8, 10);
-                                    label1.Location = new Point(45, 15);
+                                    pictureBox1.Width = 80;
+                                    pictureBox1.Height = 80;
+                                    pictureBox1.Location = new Point(10, 10);
+                                    label1.Location = new Point(100, 15);
 
                                 }
                                 catch (Exception ex)
@@ -360,9 +358,57 @@ namespace v22
             }
         }
 
-        private void API_Load(object sender, EventArgs e)
+        private async Task<bool> CreateDatabase()
         {
-
+            try
+            {
+                // Создаем базу данных SQLite
+                string connectionString = "Data Source=UserBase.db";
+                using (var connection = new SQLiteConnection(connectionString))
+                {
+                    await connection.OpenAsync().ConfigureAwait(false);
+                    
+                    // Создаем таблицу Users
+                    string createTableSql = @"
+                        CREATE TABLE IF NOT EXISTS Users (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Login TEXT NOT NULL UNIQUE,
+                            Password TEXT NOT NULL,
+                            City TEXT,
+                            Email TEXT,
+                            CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )";
+                    
+                    using (var command = new SQLiteCommand(createTableSql, connection))
+                    {
+                       await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+                    
+                    // Создаем индекс для быстрого поиска по логину
+                    string createIndexSql = "CREATE INDEX IF NOT EXISTS idx_users_login ON Users(Login)";
+                    using (var command = new SQLiteCommand(createIndexSql, connection))
+                    {
+                       await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+                    
+                    // Добавляем тестового пользователя (опционально)
+                    string insertTestUserSql = @"
+                        INSERT OR IGNORE INTO Users (Login, Password, City, Email) 
+                        VALUES ('admin', 'admin123', 'Москва', 'admin@example.com')";
+                    
+                    using (var command = new SQLiteCommand(insertTestUserSql, connection))
+                    {
+                        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    }
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка создания базы данных: {ex.Message}");
+                return false;
+            }
         }
     }
 }

@@ -58,14 +58,14 @@ namespace v22
                     string random = imageUrls[rand.Next(imageUrls.Length)];
 
                     // Добавляем задержку между запросами
-                    await Task.Delay(1000);
+                    await Task.Delay(1000).ConfigureAwait(false);
 
                     try
                     {
-                        var gg = await http.GetAsync(random);
+                        var gg = await http.GetAsync(random).ConfigureAwait(false);
                         if (gg.IsSuccessStatusCode)
                         {
-                            byte[] bytes = await gg.Content.ReadAsByteArrayAsync();
+                            byte[] bytes = await gg.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 
                             // Отображаем изображение в PictureBox
                             using (MemoryStream ms = new MemoryStream(bytes))
@@ -149,10 +149,10 @@ namespace v22
                 {
                     try
                     {
-                        var response = await http.GetAsync(url);
+                        var response = await http.GetAsync(url).ConfigureAwait(false);
                         if (response.IsSuccessStatusCode)
                         {
-                            byte[] bytes = await response.Content.ReadAsByteArrayAsync();
+                            byte[] bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 
                             // Отображаем изображение в PictureBox
                             using (MemoryStream ms = new MemoryStream(bytes))

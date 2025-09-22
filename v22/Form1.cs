@@ -102,7 +102,7 @@ namespace v22
         }
 
 
-        private bool loginproverka()
+        private async Task<bool> loginproverka()
         {
             string logn = textBox1.Text;
             if (string.IsNullOrEmpty(logn))
@@ -115,11 +115,11 @@ namespace v22
             {
                 using (var das = new SQLiteConnection(vars))
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     using (var command = new SQLiteCommand("SELECT COUNT(*) FROM Users WHERE Login = @L", das))
                     {
                         command.Parameters.AddWithValue("@L", logn);
-                        var result = command.ExecuteScalar();
+                        var result = await command.ExecuteScalarAsync().ConfigureAwait(false);
                         
                         if (result == null || result == DBNull.Value)
                         {
@@ -146,12 +146,12 @@ namespace v22
             }
         }
         // добавление данных юзера в бд
-        private void dobavitnewuser()
+        private async Task<bool> dobavitnewuser()
         {
-            if (!loginproverka())
+            if (!await loginproverka().ConfigureAwait(false))
             {
                 MessageBox.Show("Такой логин уже существует! Выберите другой логин.");
-                return;
+                return false;
             }          
             try
             {
@@ -171,21 +171,21 @@ namespace v22
                     catch (Exception ex)
                     {
                         MessageBox.Show("Ошибка при хэшировании данных: " + ex.Message);
-                        return;
+                        return false;
                     }
                     
                     // Проверяем, что все поля заполнены
                     if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(City) || string.IsNullOrEmpty(Password) || string.IsNullOrEmpty(Email))
                     {
                         MessageBox.Show("Заполните все поля!");
-                        return;
+                        return false;
                     }
                     
                     // Проверяем длину пароля
                     if (Password.Length < 8)
                     {
                         MessageBox.Show("Пароль не может быть меньше 8 символов!");
-                        return;
+                        return false;
                     }
                     
                     // Проверяем наличие специальных символов в пароле
@@ -193,20 +193,20 @@ namespace v22
                     if (!hasSpecialChars)
                     {
                         MessageBox.Show("Пароль должен содержать специальные символы! (!@#$%^&*()_+=\\[{]};:<>|./?,-)");
-                        return;
+                        return false;
                     }
                     
                     // Проверяем, что Email содержит @gmail.com
                     if (!Email.Contains("@gmail.com"))
                     {
                         MessageBox.Show("Email должен содержать @gmail.com!");
-                        return;
+                        return false;
                     }
 
                     string vars = "Data Source=UserBase.db";
                     using (var das = new SQLiteConnection(vars))
                     {
-                        das.Open();
+                        await das.OpenAsync().ConfigureAwait(false);
                         var cmd2 = new SQLiteCommand(
                             "INSERT INTO [Users] (Login,Password,City,Email) VALUES (@L,@P,@C,@E)", das);
                         cmd2.Parameters.AddWithValue("@L", textBox1.Text);
@@ -214,7 +214,7 @@ namespace v22
                         cmd2.Parameters.AddWithValue("@C", textBox4.Text);
                         cmd2.Parameters.AddWithValue("@E", textBox3.Text);
 
-                        cmd2.ExecuteNonQuery();
+                        await cmd2.ExecuteNonQueryAsync().ConfigureAwait(false);
                         MessageBox.Show("Данные сохранены!");
                         
                         // Очищаем поля после успешного добавления
@@ -222,28 +222,31 @@ namespace v22
                         textBox2.Text = "";
                         textBox3.Text = "";
                         textBox4.Text = "";
-
+                        return true;
                     }
                 }
                 else
                 {
                     MessageBox.Show("БД не найдена");
+                    return false;
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Ошибка добавления" + ex.Message);
+                return false;
             }
+            
         }
         // при нажатии на кнопку создается новое бд для хранения данных
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
             string dbPath = System.IO.Path.GetFullPath("UserBase.db");
             try
             {
                 using (var das = new SQLiteConnection($"Data Source={dbPath}"))
                 {
-                    das.Open();
+                    await das.OpenAsync().ConfigureAwait(false);
                     var createTableCommand = new SQLiteCommand(
                        @"CREATE TABLE IF NOT EXISTS [Users] (
                                 [ID] INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,9 +255,9 @@ namespace v22
                                 [City] TEXT NOT NULL,
                                 [Email] TEXT NOT NULL
                             )", das);
-                    createTableCommand.ExecuteNonQuery();
+                    await createTableCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
                 }
-                dobavitnewuser();
+                await dobavitnewuser().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -262,60 +265,52 @@ namespace v22
             }
         }
         
-        // Метод для изменения пароля пользователя
-        public static bool ChangeUserPassword(string login, string newPassword)
-        {
-            if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(newPassword))
-                return false;
+        //// Метод для изменения пароля пользователя
+        //public static bool ChangeUserPassword(string login, string newPassword)
+        //{
+        //    if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(newPassword))
+        //        return false;
                 
-            if (newPassword.Length < 8)
-                return false;
+        //    if (newPassword.Length < 8)
+        //        return false;
                 
-            string dbPath = System.IO.Path.GetFullPath("UserBase.db");
-            if (!File.Exists(dbPath))
-                return false;
+        //    string dbPath = System.IO.Path.GetFullPath("UserBase.db");
+        //    if (!File.Exists(dbPath))
+        //        return false;
                 
-            try
-            {
-                string hashedPassword;
-                using (SHA256 sha256 = SHA256.Create())
-                {
-                    byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
-                    StringBuilder stringBuilder = new StringBuilder();
-                    for (int i = 0; i < bytes.Length; i++)
-                    {
-                        stringBuilder.Append(bytes[i].ToString("x2"));
-                    }
-                    hashedPassword = stringBuilder.ToString();
-                }
+        //    try
+        //    {
+        //        string hashedPassword;
+        //        using (SHA256 sha256 = SHA256.Create())
+        //        {
+        //            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(newPassword));
+        //            StringBuilder stringBuilder = new StringBuilder();
+        //            for (int i = 0; i < bytes.Length; i++)
+        //            {
+        //                stringBuilder.Append(bytes[i].ToString("x2"));
+        //            }
+        //            hashedPassword = stringBuilder.ToString();
+        //        }
                 
-                using (var das = new SQLiteConnection($"Data Source={dbPath}"))
-                {
-                    das.Open();
-                    using (var command = new SQLiteCommand("UPDATE Users SET Password = @P WHERE Login = @L", das))
-                    {
-                        command.Parameters.AddWithValue("@P", hashedPassword);
-                        command.Parameters.AddWithValue("@L", login);
-                        int rowsAffected = command.ExecuteNonQuery();
-                        return rowsAffected > 0;
-                    }
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        
-        // переход на форму добавления заметки
-        private void button2_Click(object sender, EventArgs e)
-        {
-            zametkacreate zametkacreate = new zametkacreate();
-            zametkacreate.Show();
-            this.Hide();
-        }
+        //        using (var das = new SQLiteConnection($"Data Source={dbPath}"))
+        //        {
+        //            das.Open();
+        //            using (var command = new SQLiteCommand("UPDATE Users SET Password = @P WHERE Login = @L", das))
+        //            {
+        //                command.Parameters.AddWithValue("@P", hashedPassword);
+        //                command.Parameters.AddWithValue("@L", login);
+        //                int rowsAffected = command.ExecuteNonQuery();
+        //                return rowsAffected > 0;
+        //            }
+        //        }
+        //    }
+        //    catch
+        //    {
+        //        return false;
+        //    }
+        //}
         // Метод валидации пользователя
-        private bool vakidateuser(string Login, string Password)
+        private async Task<bool> vakidateuser(string Login, string Password)
         {
             if (string.IsNullOrEmpty(Login) || string.IsNullOrEmpty(Password))
             {
@@ -343,13 +338,13 @@ namespace v22
             
             using (var das = new SQLiteConnection($"Data Source={dbPath}"))
             {
-                das.Open();
+                await das.OpenAsync().ConfigureAwait(false);
                 try
                 {
                     using (var gg = new SQLiteCommand("SELECT Password FROM Users WHERE Login = @L LIMIT 1", das))
                     {
                         gg.Parameters.AddWithValue("@L", Login);
-                        var value = gg.ExecuteScalar();
+                        var value = await gg.ExecuteScalarAsync().ConfigureAwait(false);
                         if (value == null || value == DBNull.Value)
                         {
                             MessageBox.Show("Пользователь с таким логином не найден!");
@@ -385,7 +380,7 @@ namespace v22
 
         }
         // переход на форму настроек после валидации с доп проверками и обработчиками ошибок
-        private void button4_Click(object sender, EventArgs e)
+        private async void button4_Click(object sender, EventArgs e)
         {
             string Login = textBox1.Text;
             string Password = textBox2.Text;
@@ -394,7 +389,7 @@ namespace v22
             
             try
             {
-                if (vakidateuser(Login, Password))
+                if (await vakidateuser(Login, Password).ConfigureAwait(false))
                 {
                     main mai = new main(Login, Password, Email);
                     mai.Show();
@@ -412,10 +407,6 @@ namespace v22
             }
         }
         // переход на форму c API
-        private void button5_Click(object sender, EventArgs e)
-        {
-        }
-
         private void ApplyDarkTheme()
         {
             this.BackColor = Color.FromArgb(24, 26, 32);
@@ -520,11 +511,6 @@ namespace v22
         private void btnMinimize_Click(object sender, EventArgs e)
         {
             this.WindowState = FormWindowState.Minimized;
-        }
-
-        private void gbRegister_Enter(object sender, EventArgs e)
-        {
-
         }
     }
 }
